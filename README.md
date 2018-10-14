@@ -119,7 +119,7 @@ Here the resulting bounding boxes are drawn onto the last frame in the series:
 
 ![alt text][img10]
 
-Here's a [link to my video result](./project_video_output.mp4)
+Here's a [link to my video result](https://youtu.be/BUOVyHwS4qs)
 
 ### 5. Further Work
 
@@ -132,7 +132,7 @@ this kind of features.
 * The current approach just consider cars from the rear, It may fail with other orientations. The model should be trained
 with more data from cars in different orientations.
 
-* Since the name of the project is Vehicle Detection, and not Car Detection, currently the classier does not take into account motorcycles, or any 2-wheels vehicle. This may not be classified for my program.
+* Since the name of the project is Vehicle Detection, and not Car Detection, currently the classifier does not take into account motorcycles, or any 2-wheels vehicle. This may not be classified for my program.
 
 * My pipeline it's quite slow, takes one second to process one frame this is not feasible for production, further optimizations
 must be made to run this real-time in a car.
