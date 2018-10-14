@@ -10,100 +10,136 @@ The goals / steps of this project are the following:
 * Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
 * Estimate a bounding box for vehicles detected.
 
+My project includes the following files:
+
+* ```README.md``` writeup summarizing the results
+* ```Vehicle_Detection.ipynb``` a jupyter notebook with the vehicle detection pipeline
+* ```project_video_output.mp4``` containing the vehicle detection results
+
+
 [//]: # (Image References)
-[image1]: ./examples/car_not_car.png
-[image2]: ./examples/HOG_example.jpg
-[image3]: ./examples/sliding_windows.jpg
-[image4]: ./examples/sliding_window.jpg
-[image5]: ./examples/bboxes_and_heat.png
-[image6]: ./examples/labels_map.png
-[image7]: ./examples/output_bboxes.png
-[video1]: ./project_video.mp4
+[img2]: ./examples/ex_hog_car.png
+[img3]: ./examples/ex_hog_nocar.png
+[img4]: ./examples/ex_hog_car_pixel_per_cell_16x16.png
+[img5]: ./examples/ex_sliding_window_det1.png
+[img6]: ./examples/ex_sliding_window_det2.png
+[img7]: ./examples/ex_sliding_window_det3.png
+[img8]: ./examples/ex_sliding_window_det4.png
+[img9]: ./examples/ex_sliding_windows_search.png
+[img10]: ./examples/ex_result.png
+[video1]: ./project_video_output.mp4
+ 
 
-## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+### 1. Histogram of Oriented Gradients (HOG)
 
-### Histogram of Oriented Gradients (HOG)
+#### 1.1 Extracting HOG features from the training images.
 
-#### 1. Explain how (and identify where in your code) you extracted HOG features 
-from the training images.
+I started by exploring different color spaces and different `skimage.hog()` parameters for the random 
+samples of `vehicle` and `non-vehicle` classes. (`orientations`, `pixels_per_cell`, and `cells_per_block`).  From each 
+of the two classes, I displayed them to get a feel for what the `skimage.hog()` output looks like.
 
-The code for this step is contained in the first code cell of the IPython notebook 
-(or in lines # through # of the file called `some_file.py`).  
+Here is an example using the `YUV` color space and HOG parameters of  `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)` with orientations in the range 
+of `[5, 10]`,:
 
-I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example 
-of one of each of the `vehicle` and `non-vehicle` classes:
+![alt text][img2]
+![alt text][img3]
 
-![alt text][image1]
+The code for this step is contained in the section 2 of the IPython notebook.  
 
-I then explored different color spaces and different `skimage.hog()` parameters 
-(`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images 
-from each of the two classes and displayed them to get a feel for what the `skimage.hog()` 
-output looks like.
+#### 1.2 HOG parameters.
 
-Here is an example using the `YCrCb` color space and HOG parameters of `orientations=8`, 
-`pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
+I tried various combinations of parameters, ended up choosing the following:
 
+| HOG Parameter   | Value  | Reason |
+|-----------------|--------|--------|
+| pixels_per_cell | (8, 8) | Noticed that high caused deformation in the shape of the HOG that could influence classification |       
+| cells_per_block | (2, 2) | Arbitrary choice, based on good fit for the other two parameters |
+| orientation     | 8      | The chosen value is a some sort of middle point. High values of orientation cause the vectors to differ in direction more often, thus not resembling the real shape of the object. Low values of orientation caused the vectors to agree more often in the direction, both extremes create classification issues. 
 
-![alt text][image2]
+Example of the deformation caused by ```pixels_per_cell=(16, 16)```:   
 
-#### 2. Explain how you settled on your final choice of HOG parameters.
+![alt text][img4]
 
-I tried various combinations of parameters and...
+### 2. Training the model
 
-#### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
+I trained a linear SVM using the following parameters:
 
-I trained a linear SVM using...
+```python
+color_space = 'YUV' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+orient = 8  # HOG orientations
+pix_per_cell = 8 # HOG pixels per cell
+cell_per_block = 2 # HOG cells per block
+hog_channel = 'ALL' # Can be 0, 1, 2, or "ALL"
+spatial_size = (16, 16) # Spatial binning dimensions
+hist_bins = 32    # Number of histogram bins
+spatial_feat = True # Spatial features on or off
+hist_feat = True # Histogram features on or off
+hog_feat = True # HOG features on or off
+y_start_stop = [380, 656] # Min and max in y to search in slide_window()
+```
 
-### Sliding Window Search
+The code for this step is contained in the section 7 and 8 of the IPython notebook.
 
-#### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
+### 3. Sliding Window Search
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+I decided for the following search window configuration:
 
-![alt text][image3]
+| Window          | Scale  | Overlap Percentage   |
+|-----------------|--------|------------|
+| (380, 600)      | 1.0    | 0%         |
+| (400, 600)      | 1.5    | 90%        |
+| (420, 700)      | 3.0    | 40%        |
+ 
+As shown in the picture below:
 
-#### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
+![alt text][img9]
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+The criteria was simple, car in the horizon should look smaller, so the window scale 1.0. Cars near the camera should
+look bigger, thus the window scaling of 3.0. 
 
-![alt text][image4]
----
+Ultimately I searched on three scales using YUV 3-channels HOG features plus spatially binned color and histograms of 
+color in the feature vector, which provided a nice result. Here are some example images:
 
-### Video Implementation
+![alt text][img5]
+![alt text][img6]
+![alt text][img7]
+![alt text][img8]
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+### 4. False-positives
 
+To deal with false-positives two strategies were applied:
+ 
+* Overlapping bounding boxes: As show in the Sliding Window Search Section, when multiple overlapping bounding boxes 
+agree in a particular classification, many cases of false-positive go away by simply finding were the boxes does not agree.
 
-#### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
+* Average Frame Smoothing: By keeping record of the previous classify frames, I smoothed the heatmap by averaging it with
+the current frame, thus giving better prediction of the vehicle position.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive 
-detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then 
-used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then 
-assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of 
-each blob detected.  
+The code for this step is contained in the section 10 of the IPython notebook.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of 
-`scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame 
-of video:
+Here the resulting bounding boxes are drawn onto the last frame in the series:
 
-### Here are six frames and their corresponding heatmaps:
+![alt text][img10]
 
-![alt text][image5]
+Here's a [link to my video result](./project_video_output.mp4)
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+### 5. Further Work
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
+Here I'll talk about where the pipeline might fail and how I might improve it if I were going to pursue 
+this project further:
 
+* My current approach does not work well with different lighting conditions, we need to take into consideration
+this kind of features.
 
+* The current approach just consider cars from the rear, It may fail with other orientations. The model should be trained
+with more data of cars in different orientations.
 
----
+* Since the name of the project is Vehicle Detection, and not Car Detection, currently the classier does not take into account 
+motorcycles, or any 2-wheels vehicle. This may not be classified for my program.
 
-### Discussion
+* My pipeline it's quite slow, takes one second to process one frame this is not feasible for production, further optimizations
+must be made to run this real-time in a car.
 
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+* Engineering features is a daunting task, a better approach will be to applied deep learning so those features can be 
+learned from the data. A further task may be try vehicle detection with YOLO, SSD, etc. 
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
